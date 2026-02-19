@@ -45,10 +45,7 @@ bool Localization::Init(const std::string& yaml_path, const std::string& global_
         ui_ = std::make_shared<ui::PangolinWindow>();
         ui_->SetCurrentScanSize(10);
         ui_->Init();
-
         lidar_loc_->SetUI(ui_);
-
-        // lio_->SetUI(ui_);
     }
 
     lidar_loc_->Init(yaml_path);
@@ -63,7 +60,6 @@ bool Localization::Init(const std::string& yaml_path, const std::string& global_
     options_.lidar_loc_skip_num_ = yaml.GetValue<int>("system", "lidar_loc_skip_num");
     options_.enable_lidar_odom_skip_ = yaml.GetValue<bool>("system", "enable_lidar_odom_skip");
     options_.lidar_odom_skip_num_ = yaml.GetValue<int>("system", "lidar_odom_skip_num");
-    options_.loc_on_kf_ = yaml.GetValue<bool>("lidar_loc", "loc_on_kf");
 
     lidar_odom_proc_cloud_.SetMaxSize(1);
     lidar_loc_proc_cloud_.SetMaxSize(1);
@@ -85,10 +81,10 @@ bool Localization::Init(const std::string& yaml_path, const std::string& global_
 
     /// TODO: 发布
     pgo_->SetHighFrequencyGlobalOutputHandleFunction([this](const LocalizationResult& res) {
-        // if (loc_result_.timestamp_ > 0) {
-        //             double loc_fps = 1.0 / (res.timestamp_ - loc_result_.timestamp_);
-        //             // LOG_EVERY_N(INFO, 10) << "loc fps: " << loc_fps;
-        //         }
+        if (loc_result_.timestamp_ > 0) {
+            double loc_fps = 1.0 / (res.timestamp_ - loc_result_.timestamp_);
+            LOG_EVERY_N(INFO, 10) << "loc fps: " << loc_fps;
+        }
 
         loc_result_ = res;
 
@@ -127,7 +123,7 @@ bool Localization::Init(const std::string& yaml_path, const std::string& global_
     return true;
 }
 
-void Localization::ProcessLidarMsg(const sensor_msgs::msg::PointCloud2::SharedPtr cloud) {
+void Localization::ProcessLidarMsg(const sensor_msgs::PointCloud2::ConstPtr cloud) {
     UL lock(global_mutex_);
     if (lidar_loc_ == nullptr || lio_ == nullptr || pgo_ == nullptr) {
         return;
@@ -136,7 +132,7 @@ void Localization::ProcessLidarMsg(const sensor_msgs::msg::PointCloud2::SharedPt
     // 串行模式
     CloudPtr laser_cloud(new PointCloudType);
     preprocess_->Process(cloud, laser_cloud);
-    laser_cloud->header.stamp = cloud->header.stamp.sec * 1e9 + cloud->header.stamp.nanosec;
+    laser_cloud->header.stamp = cloud->header.stamp.sec * 1e9 + cloud->header.stamp.nsec;
 
     if (options_.online_mode_) {
         lidar_odom_proc_cloud_.AddMessage(laser_cloud);
@@ -145,7 +141,7 @@ void Localization::ProcessLidarMsg(const sensor_msgs::msg::PointCloud2::SharedPt
     }
 }
 
-void Localization::ProcessLivoxLidarMsg(const livox_ros_driver2::msg::CustomMsg::SharedPtr cloud) {
+void Localization::ProcessLivoxLidarMsg(const livox_ros_driver::CustomMsg::ConstPtr cloud) {
     UL lock(global_mutex_);
     if (lidar_loc_ == nullptr || lio_ == nullptr || pgo_ == nullptr) {
         return;
@@ -154,7 +150,7 @@ void Localization::ProcessLivoxLidarMsg(const livox_ros_driver2::msg::CustomMsg:
     // 串行模式
     CloudPtr laser_cloud(new PointCloudType);
     preprocess_->Process(cloud, laser_cloud);
-    laser_cloud->header.stamp = cloud->header.stamp.sec * 1e9 + cloud->header.stamp.nanosec;
+    laser_cloud->header.stamp = cloud->header.stamp.sec * 1e9 + cloud->header.stamp.nsec;
 
     if (options_.online_mode_) {
         lidar_odom_proc_cloud_.AddMessage(laser_cloud);
@@ -183,34 +179,25 @@ void Localization::LidarOdomProcCloud(CloudPtr cloud) {
     //           << lo_state.GetPose().translation().transpose();
 
     /// 获得lio的关键帧
-    if (options_.loc_on_kf_) {
-        auto kf = lio_->GetKeyframe();
-        if (kf == lio_kf_) {
-            /// 关键帧未更新，那就只更新IMU状态
+    auto kf = lio_->GetKeyframe();
 
-            // auto dr_state = lio_->GetState();
-            // lidar_loc_->ProcessDR(dr_state);
-            // pgo_->ProcessDR(dr_state);
-            return;
-        }
+    if (kf == lio_kf_) {
+        /// 关键帧未更新，那就只更新IMU状态
 
-        lio_kf_ = kf;
+        // auto dr_state = lio_->GetState();
+        // lidar_loc_->ProcessDR(dr_state);
+        // pgo_->ProcessDR(dr_state);
+        return;
+    }
 
-        auto scan = lio_->GetScanUndist();
+    lio_kf_ = kf;
 
-        if (options_.online_mode_) {
-            lidar_loc_proc_cloud_.AddMessage(scan);
-        } else {
-            LidarLocProcCloud(scan);
-        }
+    auto scan = lio_->GetScanUndist();
+
+    if (options_.online_mode_) {
+        lidar_loc_proc_cloud_.AddMessage(scan);
     } else {
-        auto scan = lio_->GetScanUndist();
-
-        if (options_.online_mode_) {
-            lidar_loc_proc_cloud_.AddMessage(scan);
-        } else {
-            LidarLocProcCloud(scan);
-        }
+        LidarLocProcCloud(scan);
     }
 }
 
@@ -226,10 +213,10 @@ void Localization::LidarLocProcCloud(CloudPtr scan_undist) {
     }
 
     if (loc_state_callback_) {
-        auto loc_state = std::make_shared<std_msgs::msg::Int32>();
-        loc_state->data = static_cast<int>(res.status_);
-        LOG(INFO) << "loc_state: " << loc_state->data;
-        loc_state_callback_(*loc_state);
+        std_msgs::Int32 loc_state;
+        loc_state.data = static_cast<int>(res.status_);
+        LOG(INFO) << "loc_state: " << loc_state.data;
+        loc_state_callback_(loc_state);
     }
 }
 
