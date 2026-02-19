@@ -1,4 +1,45 @@
-# Lightning-LM
+# Lightning-LM ROS1版本
+
+该项目为高博新开源代码Lightning-LM的ROS1版本，原项目地址为：https://github.com/gaoxiang12/lightning-lm
+已在ROS1 Noetic上测试通过，代码仅修改了ROS的接口部分，未对功能实现和参数进行修改，其他部分与原项目一致。
+
+### ROS1 使用方式
+
+### ROS1 建图测试
+
+1. 实时建图（实时播包）
+    - 启动建图程序:
+      ```rosrun lightning run_slam_online --config ./config/default_nclt.yaml```
+    - 播放数据包
+    - 保存地图 ```rosservice call /lightning/save_map "map_id: 'new_map'"```
+2. 离线建图（遍历跑数据，更快一些）
+    - ```rosrun lightning run_slam_offline --config ./config/default_nclt.yaml --input_bag 数据包```
+    - 结束后会自动保存至data/new_map目录下
+3. 查看地图
+    - 查看完整地图：```pcl_viewer ./data/new_map/global.pcd```
+    - 实际地图是分块存储的，global.pcd仅用于显示结果
+    - map.pgm存储了2D栅格地图信息
+    - 请注意，在定位程序运行过程中或退出时，也可能在同目录存储动态图层的结果，所以文件可能会有更多。
+
+### ROS1 定位测试
+
+1. 实时定位
+    - 将地图路径写到yaml中的 system-map_path 下，默认是new_map（和建图默认一致)
+    - 将车放在建图起点处
+    - 启动定位程序：
+      ```rosrun lightning run_loc_online --config ./config/default_nclt.yaml```
+    - 播包或者输入传感器数据即可
+
+2. 离线定位
+    - ```rosrun lightning run_loc_offline --config ./config/default_nclt.yaml --input_bag 数据包```
+
+3. 接收定位结果
+    - 定位程序输出与IMU同频的TF话题（50-100Hz）
+
+
+
+## --------------------------------------------------------------------------------------------------------------------
+## Original README
 
 Lightning-Speed Lidar Localization and Mapping
 
@@ -56,7 +97,9 @@ Features of Lightning-LM:
 
 - Localization on the NCLT dataset
 
-![](./doc/lm_loc1_nclt.gif)
+
+  ![](./doc/lm_loc1_nclt.gif)
+
 
 ## Build
 
@@ -104,7 +147,7 @@ format.
 Converted dataset addresses:
 
 - OneDrive: https://1drv.ms/f/c/1a7361d22c554503/EpDSys0bWbxDhNGDYL_O0hUBa2OnhNRvNo2Gey2id7QMQA?e=7Ui0f5
-- BaiduYun: https://pan.baidu.com/s/1XmFitUtnkKa2d0YtWquQXw?pwd=xehn 提取码: xehn
+- BaiduYun: https://pan.baidu.com/s/1XmFitUtnkKa2d0YtWquQXw?pwd=xehn 提取码: xehn 
 
 Original dataset addresses:
 
@@ -214,13 +257,6 @@ Lightning-LM特性：
 
 ## 更新
 
-### 2025.11.27
-
-- 在LIO模块中添加了Cauchy's kernel
-- 在定位模块中增加了配置： try_self_extrap，默认关闭。也就是定位模块不会根据自身外推的位姿做定位（因为定位间隔较大，车辆运动较大时不准）。
-- 添加了一个livox的配置文件，因为用livox的人比较多
-- 如果建图时设置了固定高度，那么定位也会使用这个地图高度（默认关闭）
-
 ### 2025.11.13
 
 - 修复了FasterLIO中的两个逻辑问题
@@ -230,7 +266,9 @@ Lightning-LM特性：
 
 - VBR campus数据集上的建图：
 
-![](./doc/slam_vbr.gif)
+
+  ![](./doc/slam_vbr.gif)
+
 
 - VBR上的定位
 
@@ -246,7 +284,8 @@ Lightning-LM特性：
 
 - NCLT 数据集上的定位
 
-![](./doc/lm_loc1_nclt.gif)
+
+  ![](./doc/lm_loc1_nclt.gif)
 
 ## 编译
 
@@ -291,7 +330,7 @@ Ubuntu 20.04 应该也可行，未测试。
 转换后的数据集地址：
 
 - OneDrive: https://1drv.ms/f/c/1a7361d22c554503/EpDSys0bWbxDhNGDYL_O0hUBa2OnhNRvNo2Gey2id7QMQA?e=7Ui0f5
-- BaiduYun: https://pan.baidu.com/s/1XmFitUtnkKa2d0YtWquQXw?pwd=xehn 提取码: xehn
+- BaiduYun: https://pan.baidu.com/s/1XmFitUtnkKa2d0YtWquQXw?pwd=xehn 提取码: xehn 
 
 原始数据集地址：
 
